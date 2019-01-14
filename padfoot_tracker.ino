@@ -157,7 +157,7 @@ void loop()
 
   // STEP COUNTING ALGORITHM
   // Increment step count whenever accelerometer exceeds threshold
-  if ( analogRead(xpin) > 500 && analogRead(ypin) > 500 && analogRead(zpin) > 500 ) {
+  if ( analogRead(xpin) > 450 && analogRead(ypin) > 450 && analogRead(zpin) > 450 ) {
     steps++;
     Serial.print("Step count updated to: "); 
     Serial.println(steps); 
@@ -177,5 +177,5 @@ void loop()
   }
 
   // Update once per 1s
-  delay(1000);
+  delay(2000);
 }
