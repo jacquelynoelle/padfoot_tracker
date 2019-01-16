@@ -24,7 +24,8 @@ const byte ypin = A2;        // y-axis
 const byte zpin = A1;        // z-axis
 
 // data to send over ble:
-uint16_t steps = 0; // for storing step count
+uint16_t steps = 0; // for storing total step count
+uint16_t todays_steps[24] = { 0 }; // for chunking out step count by 24-hour clock
 
 // Advanced function prototypes
 void startAdv(void);
@@ -43,7 +44,7 @@ void setup()
   Serial.begin(115200);
   while ( !Serial ) delay(10);   // for nrf52840 with native usb
 
-  Serial.println("Padfoot Testing");
+  Serial.println("Padfoot");
   Serial.println("-----------------------\n");
 
   // Initialize the Bluefruit module
@@ -105,7 +106,7 @@ void setupRSC(void) {
   //    B0:1        = UINT16 - 16-bit heart rate measurement value in BPM
   stepc.setProperties(CHR_PROPS_NOTIFY);
   stepc.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
-  stepc.setFixedLen(2);
+  stepc.setFixedLen(20);
   stepc.setCccdWriteCallback(cccd_callback);  // Optionally capture CCCD updates
   stepc.begin();
 }
@@ -163,9 +164,8 @@ void loop()
   if (Serial.available()) {
     processSyncMessage();
   }
-  if (timeStatus()!= timeNotSet) {
-    digitalClockDisplay();  
-  }
+
+  resetSteps(); // hourly reset of steps and daily reset of todays_steps array
 
   // STEP COUNTING ALGORITHM
   // Increment step count whenever accelerometer exceeds threshold
@@ -173,6 +173,10 @@ void loop()
     steps++;
     Serial.print("Step count updated to: "); 
     Serial.println(steps); 
+  }
+
+  if (timeStatus()!= timeNotSet) {
+    todays_steps[hour() - 1] = steps;
   }
 
   // Send step count to to app via BLE notify
@@ -192,36 +196,24 @@ void loop()
   delay(1000);
 }
 
-void digitalClockDisplay(){
-  // digital clock display of the time
-  Serial.print(hour());
-  printDigits(minute());
-  printDigits(second());
-  Serial.print(" ");
-  Serial.print(day());
-  Serial.print(" ");
-  Serial.print(month());
-  Serial.print(" ");
-  Serial.print(year()); 
-  Serial.println(); 
+void resetSteps(){
+  if(hour() == 0 && minute() == 0 && second() == 0) {
+    for ( byte i = 0; i < 24; i++ ) {
+       todays_steps[i] = 0;
+       steps = 0;
+    }
+  } else if(minute() == 0 && second() == 0) {
+    steps = 0;
+  }
 }
-
-void printDigits(int digits){
-  // utility function for digital clock display: prints preceding colon and leading 0
-  Serial.print(":");
-  if(digits < 10)
-    Serial.print('0');
-  Serial.print(digits);
-}
-
 
 void processSyncMessage() {
   unsigned long pctime;
-  const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013
+  const unsigned long DEFAULT_TIME = 1547510400; // Jan 1 2019
 
   if(Serial.find(TIME_HEADER)) {
      pctime = Serial.parseInt();
-     if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
+     if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2019)
        setTime(pctime); // Sync Arduino clock to the time received on the serial port
      }
   }
