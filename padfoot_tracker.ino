@@ -20,7 +20,6 @@ const byte ypin = A2;        // y-axis
 const byte zpin = A1;        // z-axis
 
 // data to send over ble:
-uint8_t  bps = 0;
 uint16_t steps = 0; // for storing step count
 
 // Advanced function prototypes
@@ -40,7 +39,7 @@ void setup()
   Serial.begin(115200);
   while ( !Serial ) delay(10);   // for nrf52840 with native usb
 
-  Serial.println("Padfoot Testing");
+  Serial.println("Padfoot");
   Serial.println("-----------------------\n");
 
   // Initialize the Bluefruit module
@@ -62,12 +61,12 @@ void setup()
   blebas.begin();
   blebas.write(100);
 
-  // Setup the Heart Rate Monitor service using
+  // Setup the Running Speed and Cadence service using
   // BLEService and BLECharacteristic classes
-  Serial.println("Configuring the Running Speed and Cadence Service");
+  Serial.println("Configuring Running Speed and Cadence Service");
   setupRSC();
 
-  // Setup the advertising packet(s)
+  // Setup the advertising packet
   startAdv();
 
   Serial.println("Advertising...\n");
@@ -97,7 +96,7 @@ void setupRSC(void) {
   // Configure the Running Speed and Cadence Step Count custom characteristic
   //    Properties  = Notify
   //    Len         = 2 (will need to up this if includes timestamp)
-  //    B0:1        = UINT16 - 16-bit heart rate measurement value in BPM
+  //    B0:1        = UINT16 - 16-bit step count
   stepc.setProperties(CHR_PROPS_NOTIFY);
   stepc.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
   stepc.setFixedLen(2);
@@ -154,17 +153,26 @@ void cccd_callback(BLECharacteristic& chr, uint16_t cccd_value)
 void loop()
 {
   digitalToggle(LED_RED);
+  uint8_t x = analogRead(xpin);
+  uint8_t y = analogRead(ypin);
+  uint8_t z = analogRead(zpin);
+
+  Serial.print("X: ");
+  Serial.print(x);
+  Serial.print(" | Y: ");
+  Serial.print(y);
+  Serial.print(" | Z: ");
+  Serial.println(z);
 
   // STEP COUNTING ALGORITHM
   // Increment step count whenever accelerometer exceeds threshold
-  if ( analogRead(xpin) > 450 && analogRead(ypin) > 450 && analogRead(zpin) > 450 ) {
+  if ( x > 100 && y > 100 && z > 100 ) {
     steps++;
     Serial.print("Step count updated to: "); 
     Serial.println(steps); 
   }
 
   // Send step count to to app via BLE notify
-  // TODO: Probably only need this to notify once every 5-10 seconds even if we want to check for steps more frequently on the device
   if ( Bluefruit.connected() ) {  // sensor connected
     // Note: We use .notify instead of .write!
     // If it is connected but CCCD is not enabled
