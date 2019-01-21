@@ -1,8 +1,4 @@
 #include <bluefruit.h>
-#include <TimeLib.h>
-
-#define TIME_HEADER  'T'   // Header tag for serial time sync message
-#define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
 
 /* GATT SERVICE AND CHARACTERISTICS:
  * Running Speed and Cadence Service:  0x1814 or 00001814-0000-1000-8000-00805f9b34fb
@@ -24,8 +20,8 @@ const byte ypin = A2;        // y-axis
 const byte zpin = A1;        // z-axis
 
 // data to send over ble:
-uint16_t steps = 0; // for storing total step count
-uint16_t todays_steps[24] = { 0 }; // for chunking out step count by 24-hour clock
+uint8_t  bps = 0;
+uint16_t steps = 0; // for storing step count
 
 // Advanced function prototypes
 void startAdv(void);
@@ -44,7 +40,7 @@ void setup()
   Serial.begin(115200);
   while ( !Serial ) delay(10);   // for nrf52840 with native usb
 
-  Serial.println("Padfoot");
+  Serial.println("Padfoot Testing");
   Serial.println("-----------------------\n");
 
   // Initialize the Bluefruit module
@@ -66,7 +62,7 @@ void setup()
   blebas.begin();
   blebas.write(100);
 
-  // Setup the Running Speed and Cadence service using
+  // Setup the Heart Rate Monitor service using
   // BLEService and BLECharacteristic classes
   Serial.println("Configuring the Running Speed and Cadence Service");
   setupRSC();
@@ -75,8 +71,6 @@ void setup()
   startAdv();
 
   Serial.println("Advertising...\n");
-
-  setSyncProvider(requestSync);  //set function to call when sync required
 }
 
 void startAdv(void)
@@ -106,7 +100,7 @@ void setupRSC(void) {
   //    B0:1        = UINT16 - 16-bit heart rate measurement value in BPM
   stepc.setProperties(CHR_PROPS_NOTIFY);
   stepc.setPermission(SECMODE_OPEN, SECMODE_NO_ACCESS);
-  stepc.setFixedLen(20);
+  stepc.setFixedLen(2);
   stepc.setCccdWriteCallback(cccd_callback);  // Optionally capture CCCD updates
   stepc.begin();
 }
@@ -161,22 +155,12 @@ void loop()
 {
   digitalToggle(LED_RED);
 
-  if (Serial.available()) {
-    processSyncMessage();
-  }
-
-  resetSteps(); // hourly reset of steps and daily reset of todays_steps array
-
   // STEP COUNTING ALGORITHM
   // Increment step count whenever accelerometer exceeds threshold
   if ( analogRead(xpin) > 450 && analogRead(ypin) > 450 && analogRead(zpin) > 450 ) {
     steps++;
     Serial.print("Step count updated to: "); 
     Serial.println(steps); 
-  }
-
-  if (timeStatus()!= timeNotSet) {
-    todays_steps[hour() - 1] = steps;
   }
 
   // Send step count to to app via BLE notify
@@ -194,33 +178,4 @@ void loop()
 
   // Update once per 1s
   delay(1000);
-}
-
-void resetSteps(){
-  if(hour() == 0 && minute() == 0 && second() == 0) {
-    for ( byte i = 0; i < 24; i++ ) {
-       todays_steps[i] = 0;
-       steps = 0;
-    }
-  } else if(minute() == 0 && second() == 0) {
-    steps = 0;
-  }
-}
-
-void processSyncMessage() {
-  unsigned long pctime;
-  const unsigned long DEFAULT_TIME = 1547510400; // Jan 1 2019
-
-  if(Serial.find(TIME_HEADER)) {
-     pctime = Serial.parseInt();
-     if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2019)
-       setTime(pctime); // Sync Arduino clock to the time received on the serial port
-     }
-  }
-}
-
-time_t requestSync()
-{
-  Serial.write(TIME_REQUEST);  
-  return 0; // the time will be sent later in response to serial mesg
 }
