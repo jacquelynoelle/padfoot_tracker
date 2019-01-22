@@ -24,7 +24,7 @@ const byte ypin = A2;        // y-axis
 const byte zpin = A1;        // z-axis
 
 // data to send over ble:
-uint16_t todays_steps[24] = { 0 }; // for chunking out step count by 24-hour clock
+uint16_t hourly_steps = 0; // for chunking out step count by 24-hour clock
 
 // Advanced function prototypes
 void startAdv(void);
@@ -186,11 +186,11 @@ void loop()
   // Increment step count whenever accelerometer exceeds threshold
   if (timeStatus()!= timeNotSet) {
     if ( x > 100 && y > 100 && z > 100 ) {
-      todays_steps[hour()] = todays_steps[hour()] + 1;
+      hourly_steps++;
     }
 
     Serial.print("Hourly step count updated to: "); 
-    Serial.println(todays_steps[hour()]); 
+    Serial.println(hourly_steps); 
   }
 
   // Send step count to to app via BLE notify
@@ -198,7 +198,7 @@ void loop()
     // Note: We use .notify instead of .write!
     // If it is connected but CCCD is not enabled
     // The characteristic's value is still updated although notification is not sent
-    if ( stepc.notify16(todays_steps[hour()]) ) {
+    if ( stepc.notify16(hourly_steps) ) {
       Serial.println("SUCCESS: Step count sent to app"); 
     } else {
       Serial.println("ERROR: Notify not set in the CCCD or not connected!");
@@ -210,10 +210,8 @@ void loop()
 }
 
 void resetSteps(){
-  if(hour() == 0 && minute() == 0 && second() < 1) {
-    for ( byte i = 0; i < 24; i++ ) {
-       todays_steps[i] = 0;
-    }
+  if(minute() == 0 && second() < 1) {
+    hourly_steps = 0;
   }
 }
 
