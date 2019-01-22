@@ -1,4 +1,8 @@
 #include <bluefruit.h>
+#include <TimeLib.h>
+
+#define TIME_HEADER  'T'   // Header tag for serial time sync message
+#define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
 
 /* GATT SERVICE AND CHARACTERISTICS:
  * Running Speed and Cadence Service:  0x1814 or 00001814-0000-1000-8000-00805f9b34fb
@@ -20,7 +24,7 @@ const byte ypin = A2;        // y-axis
 const byte zpin = A1;        // z-axis
 
 // data to send over ble:
-uint16_t steps = 0; // for storing step count
+uint16_t todays_steps[24] = { 0 }; // for chunking out step count by 24-hour clock
 
 // Advanced function prototypes
 void startAdv(void);
@@ -153,6 +157,13 @@ void cccd_callback(BLECharacteristic& chr, uint16_t cccd_value)
 void loop()
 {
   digitalToggle(LED_RED);
+
+  if (Serial.available()) {
+    processSyncMessage();
+  }
+
+  resetSteps(); // hourly reset of steps and daily reset of todays_steps array
+  
   uint8_t x = analogRead(xpin);
   uint8_t y = analogRead(ypin);
   uint8_t z = analogRead(zpin);
@@ -164,12 +175,22 @@ void loop()
   Serial.print(" | Z: ");
   Serial.println(z);
 
+  Serial.print("Hour: ");
+  Serial.print(hour());
+  Serial.print(" | Minute: ");
+  Serial.print(minute());
+  Serial.print(" | Second: ");
+  Serial.println(second());
+
   // STEP COUNTING ALGORITHM
   // Increment step count whenever accelerometer exceeds threshold
-  if ( x > 100 && y > 100 && z > 100 ) {
-    steps++;
-    Serial.print("Step count updated to: "); 
-    Serial.println(steps); 
+  if (timeStatus()!= timeNotSet) {
+    if ( x > 100 && y > 100 && z > 100 ) {
+      todays_steps[hour()] = todays_steps[hour()] + 1;
+    }
+
+    Serial.print("Hourly step count updated to: "); 
+    Serial.println(todays_steps[hour()]); 
   }
 
   // Send step count to to app via BLE notify
@@ -177,7 +198,7 @@ void loop()
     // Note: We use .notify instead of .write!
     // If it is connected but CCCD is not enabled
     // The characteristic's value is still updated although notification is not sent
-    if ( stepc.notify16(steps) ) {
+    if ( stepc.notify16(todays_steps[hour()]) ) {
       Serial.println("SUCCESS: Step count sent to app"); 
     } else {
       Serial.println("ERROR: Notify not set in the CCCD or not connected!");
@@ -186,4 +207,30 @@ void loop()
 
   // Update once per 1s
   delay(1000);
+}
+
+void resetSteps(){
+  if(hour() == 0 && minute() == 0 && second() < 1) {
+    for ( byte i = 0; i < 24; i++ ) {
+       todays_steps[i] = 0;
+    }
+  }
+}
+
+void processSyncMessage() {
+  unsigned long pctime;
+  const unsigned long DEFAULT_TIME = 1547510400; // Jan 1 2019
+
+  if(Serial.find(TIME_HEADER)) {
+     pctime = Serial.parseInt();
+     if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2019)
+       setTime(pctime); // Sync Arduino clock to the time received on the serial port
+     }
+  }
+}
+
+time_t requestSync()
+{
+  Serial.write(TIME_REQUEST);  
+  return 0; // the time will be sent later in response to serial mesg
 }
