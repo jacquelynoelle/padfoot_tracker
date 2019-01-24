@@ -23,6 +23,11 @@ const byte xpin = A3;        // x-axis
 const byte ypin = A2;        // y-axis
 const byte zpin = A1;        // z-axis
 
+uint16_t meanX = 454;
+uint16_t meanY = 475;
+uint16_t meanZ = 383;
+uint16_t step_diff = 90;
+
 // data to send over ble:
 uint16_t hourly_steps = 0; // for chunking out step count by 24-hour clock
 
@@ -185,8 +190,8 @@ void loop()
   // STEP COUNTING ALGORITHM
   // Increment step count whenever accelerometer exceeds threshold
   if (timeStatus()!= timeNotSet) {
-    if ( x > 400 && y > 400 && z > 400 ) {
-      hourly_steps++;
+    if ((abs(x - meanX) + abs(y - meanY) + abs(z - meanZ)) > step_diff) {
+      hourly_steps += 2;
     }
 
     Serial.print("Hourly step count updated to: "); 
