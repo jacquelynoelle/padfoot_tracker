@@ -164,9 +164,9 @@ void loop()
 
   resetSteps(); // hourly reset of steps and daily reset of todays_steps array
   
-  uint8_t x = analogRead(xpin);
-  uint8_t y = analogRead(ypin);
-  uint8_t z = analogRead(zpin);
+  uint16_t x = analogRead(xpin);
+  uint16_t y = analogRead(ypin);
+  uint16_t z = analogRead(zpin);
 
   Serial.print("X: ");
   Serial.print(x);
@@ -185,7 +185,7 @@ void loop()
   // STEP COUNTING ALGORITHM
   // Increment step count whenever accelerometer exceeds threshold
   if (timeStatus()!= timeNotSet) {
-    if ( x > 100 && y > 100 && z > 100 ) {
+    if ( x > 400 && y > 400 && z > 400 ) {
       hourly_steps++;
     }
 
