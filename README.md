@@ -31,7 +31,7 @@ First, you need to establish a reliable connection between the accelerometer and
 
 You'll need to first solder one end of each of the six wires to the accelerometer, then solder the other ends as diagrammed to the board. Please refer to [Adafruit's guide to soldering](https://learn.adafruit.com/adafruit-guide-excellent-soldering/tools) for further instruction. Remember, its dangerous - you're melting metal!
 
-Last but not least, you can plug in the battery to the white socket on the board.
+Last but not least, you can plug in the battery to the black socket on the board.
 
 ## Programming the Board
 To install the Padfoot tracker program, you'll need to:
